@@ -43,12 +43,10 @@ int calculate(int a, int b, int delay, int pri) {
 }
 
 int main() {
-    ThreadPool pool(1);  // 减少线程数到1，让任务排队
+    ThreadPool pool(1);
     safePrint("Initial thread count:", pool.get_thread_count());
     
-    // 测试任务取消机制
     safePrint("Testing task cancellation...");
-    // 提交一些新任务用于取消测试
     std::vector<std::pair<std::future<int>, TaskID>> cancel_tasks;
     for(int i = 0; i < 4; i++) {
         cancel_tasks.push_back(
@@ -56,16 +54,14 @@ int main() {
         );
     }
     
-    // 取消其中两个任务（任务2和3，应该还在队列中）
     if (cancel_tasks.size() >= 4) {
-        TaskID id3 = cancel_tasks[2].second;  // 任务2
-        TaskID id4 = cancel_tasks[3].second;  // 任务3
+        TaskID id3 = cancel_tasks[2].second;
+        TaskID id4 = cancel_tasks[3].second;
         safePrint("Cancelling task", id3, "and", id4);
         pool.cancelTask(id3);
         pool.cancelTask(id4);
     }
     
-    // 获取所有结果
     for(size_t i = 0; i < cancel_tasks.size(); i++) {
         try {
             int result = cancel_tasks[i].first.get();

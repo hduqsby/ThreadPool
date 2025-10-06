@@ -1,10 +1,6 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
-// 1.任务优先级支持
-// 2.动态线程数量调整
-// 3.任务取消机制
-// 4.任务组提交和取消
 #include <vector>
 #include <queue>
 #include <memory>
@@ -20,7 +16,6 @@
 #include <tuple>
 #include <utility>
 
-// 任务优先级
 enum class TaskPriority
 {
     LOW = 0,
@@ -31,15 +26,13 @@ enum class TaskPriority
 
 typedef uint64_t TaskID;
 
-// 任务取消状态枚举
 enum class TaskCancelStatus {
-    PENDING,    // 任务等待执行
-    RUNNING,    // 任务正在执行
-    COMPLETED,  // 任务已完成
-    CANCELLED   // 任务已取消
+    PENDING,
+    RUNNING,
+    COMPLETED,
+    CANCELLED
 };
 
-// 任务组ID类型
 using TaskGroupID = uint64_t;
 
 class ThreadPool
@@ -51,7 +44,6 @@ public:
     auto enqueue(TaskPriority priority, F &&f, Args &&...args)
         -> std::pair<std::future<typename std::result_of<F(Args...)>::type>, TaskID>;
 
-    // 任务组批量提交
     template <class F, class... Args>
     std::pair<std::vector<std::pair<std::future<typename std::result_of<F(Args...)>::type>, TaskID>>, TaskGroupID>
     enqueue_group(TaskPriority priority, size_t count, F &&f, Args &&...args);
@@ -75,7 +67,6 @@ private:
         TaskID id;
         bool operator<(const TaskItem &other) const
         {
-            // 优先级小的被认为小于，大的在堆顶
             return priority < other.priority;
         }
     };
@@ -91,7 +82,6 @@ private:
     mutable std::mutex task_map_mutex;
     std::unordered_map<TaskID, std::shared_ptr<std::atomic<TaskCancelStatus>>> task_status_map;
 
-    // 任务组相关映射
     std::unordered_map<TaskID, TaskGroupID> taskid_to_groupid;
     std::unordered_map<TaskGroupID, std::vector<TaskID>> groupid_to_taskids;
     std::atomic<TaskGroupID> next_group_id{1};
@@ -128,7 +118,6 @@ inline ThreadPool::ThreadPool(size_t threads)
 {
     add_threads(threads);
 }
-
 
 template <class F, class... Args>
 auto ThreadPool::enqueue(TaskPriority priority, F &&f, Args &&...args)
@@ -184,9 +173,6 @@ auto ThreadPool::enqueue(TaskPriority priority, F &&f, Args &&...args)
     return std::make_pair(std::move(res), task_id);
 }
 
-// 任务组批量提交实现
-// 返回所有future和taskid，以及groupid
-// 用法：auto group = pool.enqueue_group(priority, n, func, ...args);
 template <class F, class... Args>
 std::pair<std::vector<std::pair<std::future<typename std::result_of<F(Args...)>::type>, TaskID>>, TaskGroupID>
 ThreadPool::enqueue_group(TaskPriority priority, size_t count, F &&f, Args &&...args)
@@ -195,7 +181,7 @@ ThreadPool::enqueue_group(TaskPriority priority, size_t count, F &&f, Args &&...
     std::vector<std::pair<std::future<return_type>, TaskID>> futures;
     TaskGroupID group_id = next_group_id++;
     std::vector<TaskID> ids;
-    futures.reserve(count);  // 预留空间，避免重新分配时复制
+    futures.reserve(count);
     for (size_t i = 0; i < count; ++i) {
         auto ret = enqueue(priority, std::forward<F>(f), std::forward<Args>(args)...);
         futures.push_back(std::move(ret));
@@ -312,14 +298,12 @@ inline void ThreadPool::start_worker(Worker &worker)
     });
 }
 
-
 inline void ThreadPool::remove_threads(size_t count)
 {
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         size_t threads_to_remove = std::min(count, workers.size());
 
-        // 从后向前标记要停止的 worker
         for (size_t i = 0; i < threads_to_remove; ++i) {
             workers[workers.size() - 1 - i].stop_flag = true;
         }
@@ -334,27 +318,23 @@ inline size_t ThreadPool::get_thread_count() const
     return workers.size();
 }
 
-
 inline void ThreadPool::wait_for_worker_to_finish()
 {
-    // 这个函数必须在没有持有 queue_mutex 的情况下被调用
     std::vector<std::thread> threads_to_join;
     {
         std::lock_guard<std::mutex> lock(queue_mutex);
-        // 将需要停止的线程移动到临时 vector，并从 a'workers' 中移除
         workers.erase(
             std::remove_if(workers.begin(), workers.end(),
                            [&](Worker &w) {
                                if (w.stop_flag) {
                                    threads_to_join.push_back(std::move(w.thread));
-                                   return true; // 返回 true 表示要移除
+                                   return true;
                                }
                                return false;
                            }),
             workers.end());
     }
 
-    // 在锁外 join 线程
     for (auto &t : threads_to_join) {
         if (t.joinable()) {
             t.join();

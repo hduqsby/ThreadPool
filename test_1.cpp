@@ -25,38 +25,30 @@ int calculate(int a, int b, int delay, int pri) {
 }
 
 int main() {
-    // 初始线程数减少到2，以确保任务在队列中积压
     ThreadPool pool(2);
     safePrint("initial thread count:", pool.get_thread_count());
     std::vector<std::future<int>> results;
 
     safePrint("add tasks with different priority");
     
-    // 提交低优先级任务
     for(int i = 0; i < 2; i++) {
         results.push_back(pool.enqueue(TaskPriority::LOW, calculate, i, i+1, 3, (int)TaskPriority::LOW).first);
     }
     
-    // 短暂休眠，让高优先级任务后到达
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // 提交中等优先级任务
     for(int i = 2; i < 4; i++) {
         results.push_back(pool.enqueue(TaskPriority::MEDIUM, calculate, i, i+1, 2, (int)TaskPriority::MEDIUM).first);
     }
 
-    // 短暂休眠
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // 提交高优先级任务
     for(int i = 4; i < 6; i++) {
         results.push_back(pool.enqueue(TaskPriority::HIGH, calculate, i, i+1, 1, (int)TaskPriority::HIGH).first);
     }
 
-    // 短暂休眠
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // 提交紧急优先级任务
     for(int i = 6; i < 8; i++) {
         results.push_back(pool.enqueue(TaskPriority::CRITICAL, calculate, i, i+1, 1, (int)TaskPriority::CRITICAL).first);
     }

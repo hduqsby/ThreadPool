@@ -27,11 +27,9 @@ int main() {
     std::vector<std::future<int>> results;
 
     safePrint("add tasks with different priority");
-    // LOW 优先级
     for(int i = 0; i < 4; i++) {
         results.push_back(pool.enqueue(TaskPriority::LOW, calculate, i, i+1, 3, (int)TaskPriority::LOW).first);
     }
-    // HIGH 优先级
     for(int i = 4; i < 8; i++) {
         results.push_back(pool.enqueue(TaskPriority::HIGH, calculate, i, i+1, 1, (int)TaskPriority::HIGH).first);
     }
@@ -41,7 +39,6 @@ int main() {
     pool.resize(8);
     safePrint("thread count after add:", pool.get_thread_count());
 
-    // CRITICAL 优先级
     for(int i = 8; i < 12; i++) {
         results.push_back(pool.enqueue(TaskPriority::CRITICAL, calculate, i, i+1, 1, (int)TaskPriority::CRITICAL).first);
     }
